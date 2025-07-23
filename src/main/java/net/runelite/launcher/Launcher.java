@@ -90,9 +90,9 @@ import static net.runelite.launcher.Constants.*;
 @Slf4j
 public class Launcher
 {
-	static final File RUNELITE_DIR = new File(System.getProperty("user.home"), "." + SERVER_NAME_LOWERCASE);
+	static final File RUNELITE_DIR = new File(System.getProperty("user.home"), SERVER_NAME);
 	static final File LOGS_DIR = new File(RUNELITE_DIR, "logs");
-	static final File REPO_DIR = new File(RUNELITE_DIR, "repository2");
+	static final File REPO_DIR = new File(RUNELITE_DIR, "repository");
 	public static final File CRASH_FILES = new File(LOGS_DIR, "jvm_crash_pid_%p.log");
 	static final String USER_AGENT = SERVER_NAME + "/" + LauncherProperties.getVersion();
 	static final String LAUNCHER_EXECUTABLE_NAME_WIN = SERVER_NAME + ".exe";

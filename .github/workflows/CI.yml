@@ -58,7 +58,7 @@ jobs:
       with:
         name: windows
         path: |
-          Velheim.exe
+          VelheimSetup.exe
           VelheimSetup32.exe
           VelheimSetupAArch64.exe
         if-no-files-found: error
