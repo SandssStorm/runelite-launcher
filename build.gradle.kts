@@ -36,7 +36,7 @@ repositories {
 
 group = "net.runelite"
 version = "2.7.6-SNAPSHOT"
-description = "Jirenyte Launcher"
+description = "Velheim Launcher"
 
 dependencies {
     implementation(libs.slf4j.api)
@@ -79,7 +79,6 @@ tasks.jar {
 }
 
 tasks.getByName<JavaCompile>("compileJava8Java") {
-    options.release.unset()
     sourceCompatibility = "1.8"
     targetCompatibility = "1.8"
 }
@@ -89,7 +88,7 @@ tasks {
         filesMatching("**/*.properties") {
             val props = if (project.findProperty("RUNELITE_BUILD") as? String == "runelite")
                 arrayOf(
-                    "runelite_net" to "jirenyte.com",
+                    "runelite_net" to "velheim.com",
                     "runelite_128" to "runelite_128.png",
                     "runelite_splash" to "runelite_splash.png"
                 )

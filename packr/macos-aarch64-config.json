@@ -1,6 +1,6 @@
 {
   "classPath": [
-    "Jirenyte.jar"
+    "Velheim.jar"
   ],
   "mainClass": "net.runelite.launcher.Launcher",
   "vmArgs": [

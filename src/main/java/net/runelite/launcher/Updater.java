@@ -90,8 +90,8 @@ class Updater
 		Path path = Paths.get(command.get());
 
 		// on macOS packr changes the cwd to the resource directory prior to launching the JVM,
-		// causing current.info().command() to return /Applications/Jirenyte.app/Contents/Resources/./Jirenyte
-		// despite the executable really being at /Applications/Jirenyte.app/Contents/MacOS/Jirenyte
+		// causing current.info().command() to return /Applications/Velheim.app/Contents/Resources/./Velheim
+		// despite the executable really being at /Applications/Velheim.app/Contents/MacOS/Velheim
 		path = path.normalize()
 			.resolveSibling(Path.of("..", "MacOS", path.getFileName().toString()))
 			.normalize();
