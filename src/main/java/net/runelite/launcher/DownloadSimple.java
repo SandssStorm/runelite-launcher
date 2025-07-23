@@ -116,7 +116,7 @@ enum DownloadSimple {
                     while ((bytesRead = in.read(bytes)) != -1) {
                         buffer.clear();
                         buffer.put(bytes, 0, bytesRead);
-                        buffer.flip();
+                        buffer.flip(); 
                         while (buffer.hasRemaining()) {
                             final int written = fileChannel.write(buffer);
                             downloaded += written;

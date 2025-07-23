@@ -39,9 +39,8 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 
 @Slf4j
-public class SplashScreen extends JFrame implements ActionListener
-{
-	private static final Color BRAND_ORANGE = new Color(0, 194, 0/*220, 138, 0*/);
+public class SplashScreen extends JFrame implements ActionListener {
+	private static final Color BRAND_ORANGE = new Color(0, 194, 0/* 220, 138, 0 */);
 	private static final Color DARKER_GRAY_COLOR = new Color(30, 30, 30);
 
 	private static final int WIDTH = 200;
@@ -59,14 +58,12 @@ public class SplashScreen extends JFrame implements ActionListener
 	private volatile String subActionText = "";
 	private volatile String progressText = null;
 
-	private SplashScreen() throws IOException
-	{
+	private SplashScreen() throws IOException {
 		setTitle(Constants.SERVER_NAME + " Launcher");
 
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setUndecorated(true);
-		try (var in = SplashScreen.class.getResourceAsStream(LauncherProperties.getRuneLite128()))
-		{
+		try (var in = SplashScreen.class.getResourceAsStream(LauncherProperties.getRuneLite128())) {
 			setIconImage(ImageIO.read(in));
 		}
 		setLayout(null);
@@ -76,8 +73,7 @@ public class SplashScreen extends JFrame implements ActionListener
 		Font font = new Font(Font.DIALOG, Font.PLAIN, 12);
 
 		BufferedImage logo;
-		try (var in = SplashScreen.class.getResourceAsStream(LauncherProperties.getRuneLiteSplash()))
-		{
+		try (var in = SplashScreen.class.getResourceAsStream(LauncherProperties.getRuneLiteSplash())) {
 			logo = ImageIO.read(in);
 		}
 		JLabel logoLabel = new JLabel(new ImageIcon(logo));
@@ -99,17 +95,14 @@ public class SplashScreen extends JFrame implements ActionListener
 		progress.setBorder(new EmptyBorder(0, 0, 0, 0));
 		progress.setBounds(0, y, WIDTH, 14);
 		progress.setFont(font);
-		progress.setUI(new BasicProgressBarUI()
-		{
+		progress.setUI(new BasicProgressBarUI() {
 			@Override
-			protected Color getSelectionBackground()
-			{
+			protected Color getSelectionBackground() {
 				return Color.BLACK;
 			}
 
 			@Override
-			protected Color getSelectionForeground()
-			{
+			protected Color getSelectionForeground() {
 				return Color.BLACK;
 			}
 		});
@@ -133,67 +126,55 @@ public class SplashScreen extends JFrame implements ActionListener
 	}
 
 	@Override
-	public void actionPerformed(ActionEvent e)
-	{
+	public void actionPerformed(ActionEvent e) {
 		action.setText(actionText);
 		subAction.setText(subActionText);
 		progress.setMaximum(1000);
 		progress.setValue((int) (overallProgress * 1000));
 
 		String progressText = this.progressText;
-		if (progressText == null)
-		{
+		if (progressText == null) {
 			progress.setStringPainted(false);
-		}
-		else
-		{
+		} else {
 			progress.setStringPainted(true);
 			progress.setString(progressText);
 		}
 	}
 
-	public static void init()
-	{
-		try
-		{
-			SwingUtilities.invokeAndWait(() ->
-			{
-				if (INSTANCE != null)
-				{
+	public static void init() {
+		try {
+			SwingUtilities.invokeAndWait(() -> {
+				if (INSTANCE != null) {
 					return;
 				}
 
-				try
-				{
+				try {
 					UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
 					INSTANCE = new SplashScreen();
-				}
-				catch (Exception e)
-				{
+				} catch (Exception e) {
 					log.warn("Unable to start splash screen", e);
 				}
 			});
-		}
-		catch (InterruptedException | InvocationTargetException bs)
-		{
+		} catch (InterruptedException | InvocationTargetException bs) {
 			throw new RuntimeException(bs);
 		}
 	}
 
-	public static void stop()
-	{
-		SwingUtilities.invokeLater(() ->
-		{
-			if (INSTANCE == null)
-			{
+	public static void stop() {
+		SwingUtilities.invokeLater(() -> {
+			if (INSTANCE == null) {
 				return;
 			}
 
 			INSTANCE.timer.stop();
-			// The CLOSE_ALL_WINDOWS quit strategy on MacOS dispatches WINDOW_CLOSING events to each frame
-			// from Window.getWindows. However, getWindows uses weak refs and relies on gc to remove windows
-			// from its list, causing events to get dispatched to disposed frames. The frames handle the events
-			// regardless of being disposed and will run the configured close operation. Set the close operation
+			// The CLOSE_ALL_WINDOWS quit strategy on MacOS dispatches WINDOW_CLOSING events
+			// to each frame
+			// from Window.getWindows. However, getWindows uses weak refs and relies on gc
+			// to remove windows
+			// from its list, causing events to get dispatched to disposed frames. The
+			// frames handle the events
+			// regardless of being disposed and will run the configured close operation. Set
+			// the close operation
 			// to DO_NOTHING_ON_CLOSE prior to disposing to prevent this.
 			INSTANCE.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 			INSTANCE.dispose();
@@ -201,36 +182,28 @@ public class SplashScreen extends JFrame implements ActionListener
 		});
 	}
 
-	public static void stage(double overallProgress, @Nullable String actionText, String subActionText)
-	{
+	public static void stage(double overallProgress, @Nullable String actionText, String subActionText) {
 		stage(overallProgress, actionText, subActionText, null);
 	}
 
-	public static void stage(double startProgress, double endProgress,
-		@Nullable String actionText, String subActionText,
-		long done, long total, boolean mib)
-	{
+	public static void stage(double startProgress, double endProgress, @Nullable String actionText,
+			String subActionText, long done, long total, boolean mib) {
 		String progress;
-		if (mib)
-		{
+		if (mib) {
 			final double MiB = 1024 * 1024;
 			final double CEIL = 1.d / 10.d;
 			progress = String.format("%.1f / %.1f MiB", done / MiB, (total / MiB) + CEIL);
-		}
-		else
-		{
+		} else {
 			progress = done + " / " + total;
 		}
 		stage(startProgress + ((endProgress - startProgress) * done / total), actionText, subActionText, progress);
 	}
 
-	public static void stage(double overallProgress, @Nullable String actionText, String subActionText, @Nullable String progressText)
-	{
-		if (INSTANCE != null)
-		{
+	public static void stage(double overallProgress, @Nullable String actionText, String subActionText,
+			@Nullable String progressText) {
+		if (INSTANCE != null) {
 			INSTANCE.overallProgress = overallProgress;
-			if (actionText != null)
-			{
+			if (actionText != null) {
 				INSTANCE.actionText = actionText;
 			}
 			INSTANCE.subActionText = subActionText;
