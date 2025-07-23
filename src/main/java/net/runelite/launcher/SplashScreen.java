@@ -40,7 +40,8 @@ import java.lang.reflect.InvocationTargetException;
 
 @Slf4j
 public class SplashScreen extends JFrame implements ActionListener {
-	private static final Color BRAND_ORANGE = new Color(0, 194, 0/* 220, 138, 0 */);
+	
+	private static final Color BRAND_ORANGE = new Color(220, 138, 0);
 	private static final Color DARKER_GRAY_COLOR = new Color(30, 30, 30);
 
 	private static final int WIDTH = 200;
@@ -63,20 +64,42 @@ public class SplashScreen extends JFrame implements ActionListener {
 
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setUndecorated(true);
-		try (var in = SplashScreen.class.getResourceAsStream(LauncherProperties.getRuneLite128())) {
-			setIconImage(ImageIO.read(in));
+		// --- ICON IMAGE DEBUGGING ---
+		String iconPath = "runelite_128.png";
+		log.debug("[IMGERROR] Attempting to load icon from resource path: {}", iconPath);
+		try (var in = SplashScreen.class.getResourceAsStream(iconPath)) {
+			if (in == null) {
+				log.error("[IMGERROR] Icon resource not found at path: {}", iconPath);
+			} else {
+				setIconImage(ImageIO.read(in));
+				log.debug("[IMGERROR] Icon image loaded successfully");
+			}
+		} catch (IOException e) {
+			log.error("[IMGERROR] IOException while reading icon image from {}", iconPath, e);
 		}
+
 		setLayout(null);
 		Container pane = getContentPane();
 		pane.setBackground(DARKER_GRAY_COLOR);
 
 		Font font = new Font(Font.DIALOG, Font.PLAIN, 12);
 
-		BufferedImage logo;
-		try (var in = SplashScreen.class.getResourceAsStream(LauncherProperties.getRuneLiteSplash())) {
-			logo = ImageIO.read(in);
+		// --- SPLASH LOGO DEBUGGING ---
+		String splashPath = "runelite_splash.png";
+		log.debug("[IMGERROR] Attempting to load splash from resource path: {}", splashPath);
+		BufferedImage logo = null;
+		try (var in = SplashScreen.class.getResourceAsStream(splashPath)) {
+			if (in == null) {
+				log.error("[IMGERROR] Splash resource not found at path: {}", splashPath);
+			} else {
+				logo = ImageIO.read(in);
+				log.debug("[IMGERROR] Splash image loaded successfully");
+			}
+		} catch (IOException e) {
+			log.error("[IMGERROR] IOException while reading splash image from {}", splashPath, e);
 		}
-		JLabel logoLabel = new JLabel(new ImageIcon(logo));
+
+		JLabel logoLabel = new JLabel(logo != null ? new ImageIcon(logo) : null);
 		pane.add(logoLabel);
 		logoLabel.setBounds(0, 0, WIDTH, WIDTH);
 

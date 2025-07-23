@@ -60,6 +60,7 @@ jobs:
         path: |
           Velheim.exe
           VelheimSetup32.exe
+		  VelheimSetup64.exe
           VelheimSetupAArch64.exe
         if-no-files-found: error
   linux:
