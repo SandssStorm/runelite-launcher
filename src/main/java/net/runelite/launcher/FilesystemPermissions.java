@@ -168,7 +168,7 @@ class FilesystemPermissions
 		//
 		// Traverse only the top level directories, and limit the number of files checked,
 		// to keep it speedy. The primary files which prevent the launcher and client from
-		// working are all here (repository2, cache, logs, profiles2).
+		// working are all here (repository, cache, logs, profiles2).
 		File[] files = tree.listFiles();
 		if (files == null)
 		{

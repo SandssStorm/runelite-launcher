@@ -49,7 +49,7 @@ Type: filesandordirs; Name: "{app}\jre"
 Type: files; Name: "{userprograms}\Velheim.lnk"
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{%USERPROFILE}\.Velheim\repository2"
+Type: filesandordirs; Name: "{%USERPROFILE}\Velheim\repository"
 ; includes install_id, settings, etc
 Type: filesandordirs; Name: "{app}"
 
