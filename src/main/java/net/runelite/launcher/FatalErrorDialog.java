@@ -49,8 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static net.runelite.launcher.Constants.SERVER_NAME;
 
 @Slf4j
-public class FatalErrorDialog extends JDialog
-{
+public class FatalErrorDialog extends JDialog {
 	private static final AtomicBoolean alreadyOpen = new AtomicBoolean(false);
 
 	private static final Color DARKER_GRAY_COLOR = new Color(30, 30, 30);
@@ -60,33 +59,24 @@ public class FatalErrorDialog extends JDialog
 	private final JPanel rightColumn = new JPanel();
 	private final Font font = new Font(Font.DIALOG, Font.PLAIN, 12);
 
-	public FatalErrorDialog(String message)
-	{
-		if (alreadyOpen.getAndSet(true))
-		{
+	public FatalErrorDialog(String message) {
+		if (alreadyOpen.getAndSet(true)) {
 			throw new IllegalStateException("Fatal error during fatal error: " + message);
 		}
 
-		try
-		{
+		try {
 			UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 		}
 
 		UIManager.put("Button.select", DARKER_GRAY_COLOR);
 
-		try (var in = FatalErrorDialog.class.getResourceAsStream(LauncherProperties.getRuneLite128()))
-		{
+		try (var in = FatalErrorDialog.class.getResourceAsStream(LauncherProperties.getRuneLite128())) {
 			setIconImage(ImageIO.read(in));
-		}
-		catch (IOException e)
-		{
+		} catch (IOException e) {
 		}
 
-		try (var in = FatalErrorDialog.class.getResourceAsStream(LauncherProperties.getRuneLiteSplash()))
-		{
+		try (var in = FatalErrorDialog.class.getResourceAsStream(LauncherProperties.getRuneLiteSplash())) {
 			BufferedImage logo = ImageIO.read(in);
 			JLabel runelite = new JLabel();
 			runelite.setIcon(new ImageIcon(logo));
@@ -94,16 +84,12 @@ public class FatalErrorDialog extends JDialog
 			runelite.setBackground(DARK_GRAY_COLOR);
 			runelite.setOpaque(true);
 			rightColumn.add(runelite);
-		}
-		catch (IOException e)
-		{
+		} catch (IOException e) {
 		}
 
-		addWindowListener(new WindowAdapter()
-		{
+		addWindowListener(new WindowAdapter() {
 			@Override
-			public void windowClosing(WindowEvent e)
-			{
+			public void windowClosing(WindowEvent e) {
 				System.exit(-1);
 			}
 		});
@@ -141,18 +127,14 @@ public class FatalErrorDialog extends JDialog
 		rightColumn.setBackground(DARK_GRAY_COLOR);
 		rightColumn.setMaximumSize(new Dimension(200, Integer.MAX_VALUE));
 
-		addButton("Open logs folder", () ->
-		{
-			LinkBrowser.open(Launcher.LOGS_DIR.toString());
-		});
+		addButton("Open logs folder", () -> { LinkBrowser.open(Launcher.LOGS_DIR.toString()); });
 		addButton("Get help on Discord", () -> LinkBrowser.browse(LauncherProperties.getDiscordInvite()));
 		addButton("Troubleshooting steps", () -> LinkBrowser.browse(LauncherProperties.getTroubleshootingLink()));
 
 		pane.add(rightColumn, BorderLayout.EAST);
 	}
 
-	public void open()
-	{
+	public void open() {
 		addButton("Exit", () -> System.exit(-1));
 
 		pack();
@@ -161,32 +143,23 @@ public class FatalErrorDialog extends JDialog
 		setVisible(true);
 	}
 
-	public FatalErrorDialog addButton(String message, Runnable action)
-	{
+	public FatalErrorDialog addButton(String message, Runnable action) {
 		JButton button = new JButton(message);
 		button.addActionListener(e -> action.run());
 		button.setFont(font);
 		button.setBackground(DARK_GRAY_COLOR);
 		button.setForeground(Color.LIGHT_GRAY);
 		button.setBorder(BorderFactory.createCompoundBorder(
-			BorderFactory.createMatteBorder(1, 0, 0, 0, DARK_GRAY_COLOR.brighter()),
-			new EmptyBorder(4, 4, 4, 4)
-		));
+				BorderFactory.createMatteBorder(1, 0, 0, 0, DARK_GRAY_COLOR.brighter()), new EmptyBorder(4, 4, 4, 4)));
 		button.setAlignmentX(Component.CENTER_ALIGNMENT);
 		button.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 		button.setFocusPainted(false);
-		button.addChangeListener(ev ->
-		{
-			if (button.getModel().isPressed())
-			{
+		button.addChangeListener(ev -> {
+			if (button.getModel().isPressed()) {
 				button.setBackground(DARKER_GRAY_COLOR);
-			}
-			else if (button.getModel().isRollover())
-			{
+			} else if (button.getModel().isRollover()) {
 				button.setBackground(DARK_GRAY_HOVER_COLOR);
-			}
-			else
-			{
+			} else {
 				button.setBackground(DARK_GRAY_COLOR);
 			}
 		});
@@ -197,29 +170,25 @@ public class FatalErrorDialog extends JDialog
 		return this;
 	}
 
-	public static void showNetErrorWindow(String action, final Throwable error)
-	{
+	public static void showNetErrorWindow(String action, final Throwable error) {
 		assert error != null;
 
 		// reverse the exceptions as typically the most useful one is at the bottom
 		Stack<Throwable> exceptionStack = new Stack<>();
 		int cnt = 1;
-		for (Throwable err = error; err != null; err = err.getCause())
-		{
+		for (Throwable err = error; err != null; err = err.getCause()) {
 			log.debug("Exception #{}: {}", cnt++, err.getClass().getName());
 			exceptionStack.push(err);
 		}
 
-		while (!exceptionStack.isEmpty())
-		{
+		while (!exceptionStack.isEmpty()) {
 			Throwable err = exceptionStack.pop();
 
-			if (err instanceof VerificationException)
-			{
-				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME + " was unable to verify the security of its connection to the internet while " +
-					action + ". You may have a misbehaving antivirus, internet service provider, a proxy, or an incomplete" +
-					" java installation.", err))
-					.open();
+			if (err instanceof VerificationException) {
+				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME
+						+ " was unable to verify the security of its connection to the internet while " + action
+						+ ". You may have a misbehaving antivirus, internet service provider, a proxy, or an incomplete"
+						+ " java installation.", err)).open();
 				return;
 			}
 
@@ -228,78 +197,75 @@ public class FatalErrorDialog extends JDialog
 				String message = SERVER_NAME + " is unable to connect to a required server while " + action + ".";
 
 				// hardcoded error message from PlainSocketImpl.c for WSAEADDRNOTAVAIL
-				if (err.getMessage() != null && err.getMessage().equals("connect: Address is invalid on local machine, or port is not valid on remote machine"))
-				{
-					message += " Cannot assign requested address. This error is most commonly caused by \"split tunneling\" support in VPN software." +
-						" If you are using a VPN, try turning \"split tunneling\" off.";
+				if (err.getMessage() != null && err.getMessage().equals(
+						"connect: Address is invalid on local machine, or port is not valid on remote machine")) {
+					message += " Cannot assign requested address. This error is most commonly caused by \"split tunneling\" support in VPN software."
+							+ " If you are using a VPN, try turning \"split tunneling\" off.";
 				}
 				// connect() returning SOCKET_ERROR:
 				// WSAEACCES error formatted by NET_ThrowNew()
-				else if (err.getMessage() != null && err.getMessage().equals("Permission denied: connect"))
-				{
+				else if (err.getMessage() != null && err.getMessage().equals("Permission denied: connect")) {
 					message += " Your internet access is blocked. Firewall or antivirus software may have blocked the connection.";
 				}
 				// finishConnect() waiting for connect() to finish:
-				// Java_sun_nio_ch_SocketChannelImpl_checkConnect throws the error, either from select() returning WSAEACCES
-				// or SO_ERROR being WSAEACCES. NET_ThrowNew adds on the "no further information".
-				else if (err instanceof ConnectException && err.getMessage() != null && err.getMessage().equals("Permission denied: no further information"))
-				{
+				// Java_sun_nio_ch_SocketChannelImpl_checkConnect throws the error, either from
+				// select() returning WSAEACCES
+				// or SO_ERROR being WSAEACCES. NET_ThrowNew adds on the "no further
+				// information".
+				else if (err instanceof ConnectException && err.getMessage() != null
+						&& err.getMessage().equals("Permission denied: no further information")) {
 					message += " Your internet access is blocked. Firewall or antivirus software may have blocked the connection.";
-				}
-				else
-				{
+				} else {
 					message += " Please check your internet connection.";
 				}
 
-				new FatalErrorDialog(formatExceptionMessage(message, err))
-					.open();
+				new FatalErrorDialog(formatExceptionMessage(message, err)).open();
 				return;
 			}
 
-			if (err instanceof UnknownHostException || err instanceof UnresolvedAddressException)
-			{
-				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME + " is unable to resolve the address of a required server while " + action + ". " +
-					"Your DNS resolver may be misconfigured, pointing to an inaccurate resolver, or your internet connection may " +
-					"be down.", err))
-					.addButton("Change your DNS resolver", () -> LinkBrowser.browse(LauncherProperties.getDNSChangeLink()))
-					.open();
-				return;
-			}
-
-			if (err instanceof CertificateException)
-			{
-				if (err instanceof CertificateNotYetValidException || err instanceof CertificateExpiredException)
-				{
-					new FatalErrorDialog(formatExceptionMessage(SERVER_NAME + " was unable to verify the certificate of a required server while " + action + ". " +
-						"Check your system clock is correct.", err))
+			if (err instanceof UnknownHostException || err instanceof UnresolvedAddressException) {
+				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME
+						+ " is unable to resolve the address of a required server while " + action + ". "
+						+ "Your DNS resolver may be misconfigured, pointing to an inaccurate resolver, or your internet connection may "
+						+ "be down.", err))
+						.addButton("Change your DNS resolver",
+								() -> LinkBrowser.browse(LauncherProperties.getDNSChangeLink()))
 						.open();
+				return;
+			}
+
+			if (err instanceof CertificateException) {
+				if (err instanceof CertificateNotYetValidException || err instanceof CertificateExpiredException) {
+					new FatalErrorDialog(formatExceptionMessage(
+							SERVER_NAME + " was unable to verify the certificate of a required server while " + action
+									+ ". " + "Check your system clock is correct.",
+							err)).open();
 					return;
 				}
 
-				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME + " was unable to verify the certificate of a required server while " + action + ". " +
-					"This can be caused by a firewall, antivirus, malware, misbehaving internet service provider, or a proxy.", err))
-					.open();
+				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME
+						+ " was unable to verify the certificate of a required server while " + action + ". "
+						+ "This can be caused by a firewall, antivirus, malware, misbehaving internet service provider, or a proxy.",
+						err)).open();
 				return;
 			}
 
-			if (err instanceof SSLException)
-			{
-				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME + " was unable to establish a SSL/TLS connection with a required server while " + action + ". " +
-					"This can be caused by a firewall, antivirus, malware, misbehaving internet service provider, or a proxy.", err))
-					.open();
+			if (err instanceof SSLException) {
+				new FatalErrorDialog(formatExceptionMessage(SERVER_NAME
+						+ " was unable to establish a SSL/TLS connection with a required server while " + action + ". "
+						+ "This can be caused by a firewall, antivirus, malware, misbehaving internet service provider, or a proxy.",
+						err)).open();
 				return;
 			}
 		}
 
-		new FatalErrorDialog(formatExceptionMessage(SERVER_NAME + " encountered a fatal error while " + action + ".", error)).open();
+		new FatalErrorDialog(
+				formatExceptionMessage(SERVER_NAME + " encountered a fatal error while " + action + ".", error)).open();
 	}
 
-	private static String formatExceptionMessage(String message, Throwable err)
-	{
+	private static String formatExceptionMessage(String message, Throwable err) {
 		var nl = System.getProperty("line.separator");
-		return message + nl
-			+ nl
-			+ "Exception: " + err.getClass().getSimpleName() + nl
-			+ "Message: " + MoreObjects.firstNonNull(err.getMessage(), "n/a");
+		return message + nl + nl + "Exception: " + err.getClass().getSimpleName() + nl + "Message: "
+				+ MoreObjects.firstNonNull(err.getMessage(), "n/a");
 	}
 }

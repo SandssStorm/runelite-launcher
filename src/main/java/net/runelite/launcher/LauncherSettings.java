@@ -52,8 +52,7 @@ import org.slf4j.helpers.MessageFormatter;
 
 @Data
 @Slf4j
-class LauncherSettings
-{
+class LauncherSettings {
 	private static final String LAUNCHER_SETTINGS = "settings.json";
 
 	long lastUpdateAttemptTime;
@@ -72,135 +71,83 @@ class LauncherSettings
 	List<String> clientArguments = Collections.emptyList();
 	List<String> jvmArguments = Collections.emptyList();
 	HardwareAccelerationMode hardwareAccelerationMode = HardwareAccelerationMode.AUTO;
-	LaunchMode launchMode = LaunchMode.AUTO;
+	LaunchMode launchMode = LaunchMode.JVM;
 
 	// override settings with options from cli
-	void apply(OptionSet options)
-	{
-		if (options.has("debug"))
-		{
+	void apply(OptionSet options) {
+		if (options.has("debug")) {
 			debug = true;
 		}
-		if (options.has("nodiff"))
-		{
+		if (options.has("nodiff")) {
 			nodiffs = true;
 		}
-		if (options.has("insecure-skip-tls-verification"))
-		{
+		if (options.has("insecure-skip-tls-verification")) {
 			skipTlsVerification = true;
 		}
-		if (options.has("noupdate"))
-		{
+		if (options.has("noupdate")) {
 			noupdates = true;
 		}
-		if (options.has("scale"))
-		{
+		if (options.has("scale")) {
 			scale = Double.parseDouble(String.valueOf(options.valueOf("scale")));
 		}
 
-		if (options.has("J"))
-		{
-			jvmArguments = options.valuesOf("J").stream()
-				.filter(String.class::isInstance)
-				.map(String.class::cast)
-				.collect(Collectors.toList());
+		if (options.has("J")) {
+			jvmArguments = options.valuesOf("J").stream().filter(String.class::isInstance).map(String.class::cast)
+					.collect(Collectors.toList());
 		}
 
 		if (!options.nonOptionArguments().isEmpty()) // client arguments
 		{
-			clientArguments = options.nonOptionArguments().stream()
-				.filter(String.class::isInstance)
-				.map(String.class::cast)
-				.collect(Collectors.toList());
+			clientArguments = options.nonOptionArguments().stream().filter(String.class::isInstance)
+					.map(String.class::cast).collect(Collectors.toList());
 		}
 
-		if (options.has("hw-accel"))
-		{
+		if (options.has("hw-accel")) {
 			hardwareAccelerationMode = (HardwareAccelerationMode) options.valueOf("hw-accel");
-		}
-		else if (options.has("mode"))
-		{
+		} else if (options.has("mode")) {
 			hardwareAccelerationMode = (HardwareAccelerationMode) options.valueOf("mode");
-		}
-
-		// we use runelite.launcher.reflect to signal to use the reflect launch mode from the debug plugin
-		if ("true".equals(System.getProperty("runelite.launcher.reflect")))
-		{
-			launchMode = LaunchMode.REFLECT;
-		}
-		else if (options.has("launch-mode"))
-		{
-			launchMode = (LaunchMode) options.valueOf("launch-mode");
 		}
 	}
 
-	String configurationStr()
-	{
-		return MessageFormatter.arrayFormat(
-				" debug: {}" + System.lineSeparator() +
-				" nodiffs: {}" + System.lineSeparator() +
-				" skip tls verification: {}" + System.lineSeparator() +
-				" noupdates: {}" + System.lineSeparator() +
-				" safe mode: {}" + System.lineSeparator() +
-				" ipv4: {}" + System.lineSeparator() +
-				" scale: {}" + System.lineSeparator() +
-				" client arguments: {}" + System.lineSeparator() +
-				" jvm arguments: {}" + System.lineSeparator() +
-				" hardware acceleration mode: {}" + System.lineSeparator() +
-				" launch mode: {}",
-			new Object[]{
-				debug,
-				nodiffs,
-				skipTlsVerification,
-				noupdates,
-				safemode,
-				ipv4,
-				scale == null ? "system" : scale,
-				clientArguments.isEmpty() ? "none" : clientArguments,
-				jvmArguments.isEmpty() ? "none" : jvmArguments,
-				hardwareAccelerationMode,
-				launchMode
-			}
-		).getMessage();
+	String configurationStr() {
+		return MessageFormatter
+				.arrayFormat(" debug: {}" + System.lineSeparator() + " nodiffs: {}" + System.lineSeparator()
+						+ " skip tls verification: {}" + System.lineSeparator() + " noupdates: {}"
+						+ System.lineSeparator() + " safe mode: {}" + System.lineSeparator() + " ipv4: {}"
+						+ System.lineSeparator() + " scale: {}" + System.lineSeparator() + " client arguments: {}"
+						+ System.lineSeparator() + " jvm arguments: {}" + System.lineSeparator()
+						+ " hardware acceleration mode: {}" + System.lineSeparator() + " launch mode: {}",
+						new Object[] { debug, nodiffs, skipTlsVerification, noupdates, safemode, ipv4,
+								scale == null ? "system" : scale, clientArguments.isEmpty() ? "none" : clientArguments,
+								jvmArguments.isEmpty() ? "none" : jvmArguments, hardwareAccelerationMode, launchMode })
+				.getMessage();
 	}
 
 	@Nonnull
-	static LauncherSettings loadSettings()
-	{
+	static LauncherSettings loadSettings() {
 		var settingsFile = new File(LAUNCHER_SETTINGS).getAbsoluteFile();
-		try (var in = new InputStreamReader(new FileInputStream(settingsFile), StandardCharsets.UTF_8))
-		{
-			var settings = new Gson()
-				.fromJson(in, LauncherSettings.class);
+		try (var in = new InputStreamReader(new FileInputStream(settingsFile), StandardCharsets.UTF_8)) {
+			var settings = new Gson().fromJson(in, LauncherSettings.class);
 			return MoreObjects.firstNonNull(settings, new LauncherSettings());
-		}
-		catch (FileNotFoundException ex)
-		{
+		} catch (FileNotFoundException ex) {
 			log.debug("unable to load settings, file does not exist");
 			return new LauncherSettings();
-		}
-		catch (IOException | JsonParseException e)
-		{
+		} catch (IOException | JsonParseException e) {
 			log.warn("unable to load settings", e);
 			return new LauncherSettings();
 		}
 	}
 
-	static void saveSettings(LauncherSettings settings)
-	{
+	static void saveSettings(LauncherSettings settings) {
 		var settingsFile = new File(LAUNCHER_SETTINGS).getAbsoluteFile();
 
-		try
-		{
+		try {
 			File tmpFile = File.createTempFile(LAUNCHER_SETTINGS, "json");
-			Gson gson = new GsonBuilder()
-				.setPrettyPrinting()
-				.create();
+			Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
 			try (FileOutputStream fout = new FileOutputStream(tmpFile);
-				FileChannel channel = fout.getChannel();
-				OutputStreamWriter writer = new OutputStreamWriter(fout, StandardCharsets.UTF_8))
-			{
+					FileChannel channel = fout.getChannel();
+					OutputStreamWriter writer = new OutputStreamWriter(fout, StandardCharsets.UTF_8)) {
 				channel.lock();
 				gson.toJson(settings, writer);
 				writer.flush();
@@ -208,18 +155,14 @@ class LauncherSettings
 				// FileChannel.close() frees the lock
 			}
 
-			try
-			{
-				Files.move(tmpFile.toPath(), settingsFile.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-			}
-			catch (AtomicMoveNotSupportedException ex)
-			{
+			try {
+				Files.move(tmpFile.toPath(), settingsFile.toPath(), StandardCopyOption.REPLACE_EXISTING,
+						StandardCopyOption.ATOMIC_MOVE);
+			} catch (AtomicMoveNotSupportedException ex) {
 				log.debug("atomic move not supported", ex);
 				Files.move(tmpFile.toPath(), settingsFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			}
-		}
-		catch (IOException e)
-		{
+		} catch (IOException e) {
 			log.error("unable to save launcher settings!", e);
 			settingsFile.delete();
 		}

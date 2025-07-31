@@ -24,10 +24,6 @@
  */
 package net.runelite.launcher;
 
-public enum LaunchMode
-{
-	AUTO,
-	JVM,
-	FORK,
-	REFLECT;
+public enum LaunchMode {
+	AUTO, JVM, FORK, REFLECT;
 }

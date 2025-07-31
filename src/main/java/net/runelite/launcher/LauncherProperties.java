@@ -31,8 +31,8 @@ import java.io.InputStream;
 import java.util.Properties;
 
 @Slf4j
-public class LauncherProperties
-{
+public class LauncherProperties {
+	
 	private static final String LAUNCHER_VERSION = "runelite.launcher.version";
 	private static final String DISCORD_INVITE = "runelite.discord.invite";
 	private static final String TROUBLESHOOTING_LINK = "runelite.wiki.troubleshooting.link";
@@ -45,67 +45,53 @@ public class LauncherProperties
 
 	private static final Properties properties = new Properties();
 
-	static
-	{
+	static {
 		final InputStream in = LauncherProperties.class.getResourceAsStream("launcher.properties");
 
-		try
-		{
+		try {
 			properties.load(in);
-		}
-		catch (IOException ex)
-		{
+		} catch (IOException ex) {
 			log.warn("Unable to load properties", ex);
 		}
 	}
 
-	public static String getVersionKey()
-	{
+	public static String getVersionKey() {
 		return LAUNCHER_VERSION;
 	}
 
-	public static String getVersion()
-	{
+	public static String getVersion() {
 		return properties.getProperty(LAUNCHER_VERSION);
 	}
 
-	public static String getDiscordInvite()
-	{
+	public static String getDiscordInvite() {
 		return properties.getProperty(DISCORD_INVITE);
 	}
 
-	public static String getTroubleshootingLink()
-	{
+	public static String getTroubleshootingLink() {
 		return properties.getProperty(TROUBLESHOOTING_LINK);
 	}
 
-	public static String getDNSChangeLink()
-	{
+	public static String getDNSChangeLink() {
 		return properties.getProperty(DNS_CHANGE_LINK);
 	}
 
-	public static String getDownloadLink()
-	{
+	public static String getDownloadLink() {
 		return properties.getProperty(DOWNLOAD_LINK);
 	}
 
-	public static String getBootstrap()
-	{
+	public static String getBootstrap() {
 		return properties.getProperty(BOOTSTRAP);
 	}
 
-	public static String getMain()
-	{
+	public static String getMain() {
 		return properties.getProperty(MAIN);
 	}
 
-	public static String getRuneLite128()
-	{
+	public static String getRuneLite128() {
 		return properties.getProperty(RUNELITE_128);
 	}
 
-	public static String getRuneLiteSplash()
-	{
+	public static String getRuneLiteSplash() {
 		return properties.getProperty(RUNELITE_SPLASH);
 	}
 }

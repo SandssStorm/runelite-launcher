@@ -39,71 +39,64 @@ import static net.runelite.launcher.Constants.SERVER_NAME;
 import static net.runelite.launcher.Launcher.*;
 
 @Slf4j
-class FilesystemPermissions
-{
+class FilesystemPermissions {
 	// https://learn.microsoft.com/en-us/windows/win32/secauthz/well-known-sids
 	private static final String SID_SYSTEM = "S-1-5-18";
 	private static final String SID_ADMINISTRATORS = "S-1-5-32-544";
 	private static final int MAX_FILES_PER_DIRECTORY = 64;
 
-	static boolean check()
-	{
-		if (!nativesLoaded)
-		{
+	static boolean check() {
+		if (!nativesLoaded) {
 			log.debug("Launcher natives were not loaded. Skipping filesystem permission check.");
 			return false;
 		}
 
 		final boolean elevated = isProcessElevated(ProcessHandle.current().pid());
-		// It is possible for .runelite to exist but be not writable, even when elevated. But we can update the ACLs
+		// It is possible for .runelite to exist but be not writable, even when
+		// elevated. But we can update the ACLs
 		// always when elevated, so attempt to fix the ACLs first.
-		if (elevated)
-		{
-			log.info(SERVER_NAME + " is running as an administrator. This is not recommended because it can cause the files " +
-							SERVER_NAME + " writes to {} to have more strict permissions than would otherwise be required.",
-				RUNELITE_DIR);
+		if (elevated) {
+			log.info(SERVER_NAME
+					+ " is running as an administrator. This is not recommended because it can cause the files "
+					+ SERVER_NAME + " writes to {} to have more strict permissions than would otherwise be required.",
+					RUNELITE_DIR);
 
-			try
-			{
+			try {
 				final var sid = Launcher.getUserSID();
-				log.info(SERVER_NAME + " is updating the ACLs of the files in {} to be: NT AUTHORITY\\SYSTEM, BUILTIN\\Administrators, " +
-						"and {} (your user SID). To avoid this, don't run " + SERVER_NAME + " with elevated permissions.",
-					RUNELITE_DIR, sid);
+				log.info(SERVER_NAME
+						+ " is updating the ACLs of the files in {} to be: NT AUTHORITY\\SYSTEM, BUILTIN\\Administrators, "
+						+ "and {} (your user SID). To avoid this, don't run " + SERVER_NAME
+						+ " with elevated permissions.", RUNELITE_DIR, sid);
 
-				// Files.walk is depth-first, which doesn't work if the permissions on the root don't allow traversal.
+				// Files.walk is depth-first, which doesn't work if the permissions on the root
+				// don't allow traversal.
 				// So we do our own walk.
 				Stopwatch sw = Stopwatch.createStarted();
 				setTreeACL(RUNELITE_DIR, sid);
 				sw.stop();
 				log.debug("setTreeACL time: {}", sw);
-			}
-			catch (Exception ex)
-			{
+			} catch (Exception ex) {
 				log.error("Unable to update file permissions", ex);
 			}
 		}
 
-		if (!RUNELITE_DIR.exists())
-		{
-			if (!RUNELITE_DIR.mkdirs())
-			{
+		if (!RUNELITE_DIR.exists()) {
+			if (!RUNELITE_DIR.mkdirs()) {
 				log.error("unable to create directory {} elevated: {}", RUNELITE_DIR, elevated);
 
 				String message;
-				if (elevated)
-				{
-					message = "Unable to create " + SERVER_NAME + " directory " + RUNELITE_DIR + " while elevated. Check your filesystem permissions are correct.";
+				if (elevated) {
+					message = "Unable to create " + SERVER_NAME + " directory " + RUNELITE_DIR
+							+ " while elevated. Check your filesystem permissions are correct.";
+				} else {
+					message = "Unable to create " + SERVER_NAME + " directory " + RUNELITE_DIR
+							+ ". Check your filesystem permissions are correct. If you rerun " + SERVER_NAME
+							+ " as an administrator, " + SERVER_NAME
+							+ " will attempt to create the directory again and fix its permissions.";
 				}
-				else
-				{
-					message = "Unable to create " + SERVER_NAME+ " directory " + RUNELITE_DIR + ". Check your filesystem permissions are correct. If you rerun " + SERVER_NAME +
-						" as an administrator, " + SERVER_NAME + " will attempt to create the directory again and fix its permissions.";
-				}
-				SwingUtilities.invokeLater(() ->
-				{
+				SwingUtilities.invokeLater(() -> {
 					var dialog = new FatalErrorDialog(message);
-					if (!elevated)
-					{
+					if (!elevated) {
 						dialog.addButton("Run as administrator", FilesystemPermissions::runas);
 					}
 					dialog.open();
@@ -111,17 +104,14 @@ class FilesystemPermissions
 				return true;
 			}
 
-			if (elevated)
-			{
-				// Set the correct permissions on the newly created folder. This sets object inherit and container inherit,
+			if (elevated) {
+				// Set the correct permissions on the newly created folder. This sets object
+				// inherit and container inherit,
 				// so all future files in .runelite should then have the correct permissions.
-				try
-				{
+				try {
 					final var sid = Launcher.getUserSID();
 					setTreeACL(RUNELITE_DIR, sid);
-				}
-				catch (Exception ex)
-				{
+				} catch (Exception ex) {
 					log.error("Unable to update file permissions", ex);
 				}
 			}
@@ -132,24 +122,21 @@ class FilesystemPermissions
 		sw.stop();
 		log.debug("checkPermissions time: {}", sw);
 
-		if (!permissionsOk)
-		{
+		if (!permissionsOk) {
 			String message;
-			if (elevated)
-			{
+			if (elevated) {
 				// This means the previous ACL update above did not work...?
-				message = "The file permissions of " + RUNELITE_DIR + ", or a file within it, is not correct. Check the logs for more details.";
+				message = "The file permissions of " + RUNELITE_DIR
+						+ ", or a file within it, is not correct. Check the logs for more details.";
+			} else {
+				message = "The file permissions of " + RUNELITE_DIR
+						+ ", or a file within it, is not correct. Check the logs for more details." + " If you rerun "
+						+ SERVER_NAME + " as an administrator, " + SERVER_NAME
+						+ " will attempt to fix the file permissions.";
 			}
-			else
-			{
-				message = "The file permissions of " + RUNELITE_DIR + ", or a file within it, is not correct. Check the logs for more details." +
-					" If you rerun " + SERVER_NAME + " as an administrator, " + SERVER_NAME + " will attempt to fix the file permissions.";
-			}
-			SwingUtilities.invokeLater(() ->
-			{
+			SwingUtilities.invokeLater(() -> {
 				var dialog = new FatalErrorDialog(message);
-				if (!elevated)
-				{
+				if (!elevated) {
 					dialog.addButton("Run as administrator", FilesystemPermissions::runas);
 				}
 				dialog.open();
@@ -160,52 +147,45 @@ class FilesystemPermissions
 		return false;
 	}
 
-	private static boolean checkPermissions(File tree, boolean root)
-	{
-		// Directory traversal and isWritable() is very slow. On my system checking 16k files
-		// takes ~13 seconds with traversal. The majority of these files tend to be screenshots
+	private static boolean checkPermissions(File tree, boolean root) {
+		// Directory traversal and isWritable() is very slow. On my system checking 16k
+		// files
+		// takes ~13 seconds with traversal. The majority of these files tend to be
+		// screenshots
 		// which are less interesting.
 		//
-		// Traverse only the top level directories, and limit the number of files checked,
-		// to keep it speedy. The primary files which prevent the launcher and client from
+		// Traverse only the top level directories, and limit the number of files
+		// checked,
+		// to keep it speedy. The primary files which prevent the launcher and client
+		// from
 		// working are all here (repository, cache, logs, profiles2).
 		File[] files = tree.listFiles();
-		if (files == null)
-		{
+		if (files == null) {
 			log.error("Unable to list files in directory {} (IO error, or is not a directory)", tree);
 			return false;
 		}
 
 		boolean ok = true;
 		int numFiles = 0;
-		for (File file : files)
-		{
-			if (file.isDirectory())
-			{
+		for (File file : files) {
+			if (file.isDirectory()) {
 				log.debug("Checking permissions of directory {}", file);
-				if (root && !checkPermissions(file, false))
-				{
+				if (root && !checkPermissions(file, false)) {
 					ok = false;
 				}
-			}
-			else if (numFiles++ < MAX_FILES_PER_DIRECTORY)
-			{
+			} else if (numFiles++ < MAX_FILES_PER_DIRECTORY) {
 				Path path;
-				try
-				{
+				try {
 					path = file.toPath();
-				}
-				catch (InvalidPathException ex)
-				{
+				} catch (InvalidPathException ex) {
 					log.error("file is not a valid path", ex);
 					continue;
 				}
 
 				log.debug("Checking permissions of {}", path);
-				if (!Files.isReadable(path) || !Files.isWritable(path))
-				{
-					log.error("Permissions for {} are incorrect. Readable: {} writable: {}",
-						file, Files.isReadable(path), Files.isWritable(path));
+				if (!Files.isReadable(path) || !Files.isWritable(path)) {
+					log.error("Permissions for {} are incorrect. Readable: {} writable: {}", file,
+							Files.isReadable(path), Files.isWritable(path));
 					ok = false;
 				}
 			}
@@ -213,51 +193,35 @@ class FilesystemPermissions
 		return ok;
 	}
 
-	private static void setTreeACL(File tree, String sid) throws IOException
-	{
+	private static void setTreeACL(File tree, String sid) throws IOException {
 		log.debug("Setting ACL on {}", tree.getAbsolutePath());
-		setFileACL(tree.getAbsolutePath(), new String[]{
-			SID_SYSTEM,
-			SID_ADMINISTRATORS,
-			sid
-		});
+		setFileACL(tree.getAbsolutePath(), new String[] { SID_SYSTEM, SID_ADMINISTRATORS, sid });
 		Files.setAttribute(tree.toPath(), "dos:readonly", false);
 
-		for (File file : tree.listFiles())
-		{
-			if (file.isDirectory())
-			{
+		for (File file : tree.listFiles()) {
+			if (file.isDirectory()) {
 				setTreeACL(file, sid);
-			}
-			else
-			{
+			} else {
 				log.debug("Setting ACL on {}", file.getAbsolutePath());
-				setFileACL(file.getAbsolutePath(), new String[]{
-					SID_SYSTEM,
-					SID_ADMINISTRATORS,
-					sid
-				});
+				setFileACL(file.getAbsolutePath(), new String[] { SID_SYSTEM, SID_ADMINISTRATORS, sid });
 				Files.setAttribute(file.toPath(), "dos:readonly", false);
 			}
 		}
 	}
 
-	private static void runas()
-	{
+	private static void runas() {
 		log.info("Relaunching as administrator");
 
 		ProcessHandle current = ProcessHandle.current();
 		var command = current.info().command();
-		if (command.isEmpty())
-		{
+		if (command.isEmpty()) {
 			log.error("Running process has no command");
 			System.exit(-1);
 			return;
 		}
 
 		Path path = Paths.get(command.get());
-		if (!path.getFileName().toString().equals(LAUNCHER_EXECUTABLE_NAME_WIN))
-		{
+		if (!path.getFileName().toString().equals(LAUNCHER_EXECUTABLE_NAME_WIN)) {
 			log.error("Running process is not the launcher: {}", path.getFileName().toString());
 			System.exit(-1);
 			return;

@@ -47,6 +47,8 @@ import net.runelite.launcher.beans.Platform;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.event.HyperlinkEvent.EventType;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -57,7 +59,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -68,6 +72,7 @@ import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -88,8 +93,8 @@ import java.util.zip.GZIPInputStream;
 import static net.runelite.launcher.Constants.*;
 
 @Slf4j
-public class Launcher
-{
+public class Launcher {
+
 	static final File RUNELITE_DIR = new File(System.getProperty("user.home"), SERVER_NAME);
 	static final File LOGS_DIR = new File(RUNELITE_DIR, "logs");
 	static final File REPO_DIR = new File(RUNELITE_DIR, "repository");
@@ -103,8 +108,7 @@ public class Launcher
 
 	private static final boolean JAR_HASH_MODE = false;
 
-	private static OptionSet parseArgs(String[] args)
-	{
+	private static OptionSet parseArgs(String[] args) {
 		args = parseApplicationURI(args);
 
 		OptionParser parser = new OptionParser(false);
@@ -119,44 +123,32 @@ public class Launcher
 		parser.accepts("classpath", "Classpath for the client").withRequiredArg();
 		parser.accepts("J", "JVM argument (FORK or JVM launch mode only)").withRequiredArg();
 		parser.accepts("configure", "Opens configuration GUI");
-		parser.accepts("launch-mode", "JVM launch method (JVM, FORK, REFLECT)")
-			.withRequiredArg()
-			.ofType(LaunchMode.class);
+		parser.accepts("launch-mode", "JVM launch method (JVM, FORK, REFLECT)").withRequiredArg()
+				.ofType(LaunchMode.class);
 		parser.accepts("hw-accel", "Java 2D hardware acceleration mode (OFF, DIRECTDRAW, OPENGL, METAL)")
-			.withRequiredArg()
-			.ofType(HardwareAccelerationMode.class);
-		parser.accepts("mode", "Alias of hw-accel")
-			.withRequiredArg()
-			.ofType(HardwareAccelerationMode.class);
+				.withRequiredArg().ofType(HardwareAccelerationMode.class);
+		parser.accepts("mode", "Alias of hw-accel").withRequiredArg().ofType(HardwareAccelerationMode.class);
 
-		if (OS.getOs() == OS.OSType.MacOS)
-		{
+		if (OS.getOs() == OS.OSType.MacOS) {
 			// Parse macos PSN, eg: -psn_0_352342
 			parser.accepts("p").withRequiredArg();
 		}
 
 		final OptionSet options;
-		try
-		{
+		try {
 			options = parser.parse(args);
-		}
-		catch (OptionException ex)
-		{
+		} catch (OptionException ex) {
 			log.error("unable to parse arguments", ex);
-			SwingUtilities.invokeLater(() ->
-				new FatalErrorDialog(SERVER_NAME + " was unable to parse the provided application arguments: " + ex.getMessage())
+			SwingUtilities.invokeLater(() -> new FatalErrorDialog(
+					SERVER_NAME + " was unable to parse the provided application arguments: " + ex.getMessage())
 					.open());
 			throw ex;
 		}
 
-		if (options.has("help"))
-		{
-			try
-			{
+		if (options.has("help")) {
+			try {
 				parser.printHelpOn(System.out);
-			}
-			catch (IOException e)
-			{
+			} catch (IOException e) {
 				log.error(null, e);
 			}
 			System.exit(0);
@@ -165,26 +157,20 @@ public class Launcher
 		return options;
 	}
 
-	private static String[] parseApplicationURI(String[] args)
-	{
+	private static String[] parseApplicationURI(String[] args) {
 		// runelite-jav://oldschool2.runescape.com:80/jav_config.ws
-		if (args.length > 0 && args[0].startsWith("runelite-jav://"))
-		{
+		if (args.length > 0 && args[0].startsWith("runelite-jav://")) {
 			log.info("Launched using URI {}", args[0]);
-			return new String[]{
-				"--jav_config", args[0].replace("runelite-jav", "http")
-			};
+			return new String[] { "--jav_config", args[0].replace("runelite-jav", "http") };
 		}
 
 		return args;
 	}
 
-	public static void main(String[] args)
-	{
+	public static void main(String[] args) {
 		final OptionSet options = parseArgs(args);
 
-		if (options.has("configure"))
-		{
+		if (options.has("configure")) {
 			ConfigurationFrame.open();
 			return;
 		}
@@ -196,99 +182,92 @@ public class Launcher
 
 		// Setup logging
 		LOGS_DIR.mkdirs();
-		if (settings.isDebug())
-		{
+		if (settings.isDebug()) {
 			final Logger logger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
 			logger.setLevel(Level.DEBUG);
 		}
 
 		initDll();
 
-		// RTSS triggers off of the CreateWindow event, so this needs to be in place early, prior to splash screen
+		// RTSS triggers off of the CreateWindow event, so this needs to be in place
+		// early, prior to splash screen
 		initDllBlacklist();
 
-		try
-		{
-			if (options.has("classpath"))
-			{
+		try {
+			if (options.has("classpath")) {
 				TrustManagerUtil.setupTrustManager();
 
 				// being called from ForkLauncher. All JVM options are already set.
 				var classpathOpt = String.valueOf(options.valueOf("classpath"));
-				var classpath = Streams.stream(Splitter.on(File.pathSeparatorChar)
-					.split(classpathOpt))
-					.map(name -> new File(REPO_DIR, name))
-					.collect(Collectors.toList());
-				try
-				{
+				var classpath = Streams.stream(Splitter.on(File.pathSeparatorChar).split(classpathOpt))
+						.map(name -> new File(REPO_DIR, name)).collect(Collectors.toList());
+				try {
 					ReflectionLauncher.launch(classpath, getClientArgs(settings));
-				}
-				catch (Exception e)
-				{
+				} catch (Exception e) {
 					log.error("error launching client", e);
 				}
 				return;
 			}
 
 			final Map<String, String> jvmProps = new LinkedHashMap<>();
-			if (settings.scale != null)
-			{
-				// This calls SetProcessDPIAware(). Since the Velheim.exe manifest is DPI unaware
-				// Windows will scale the application if this isn't called. Thus the default scaling
+			if (settings.scale != null) {
+				// This calls SetProcessDPIAware(). Since the Velheim.exe manifest is DPI
+				// unaware
+				// Windows will scale the application if this isn't called. Thus the default
+				// scaling
 				// mode is Windows scaling due to being DPI unaware.
 				// https://docs.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows
 				jvmProps.put("sun.java2d.dpiaware", "true");
-				// This sets the Java 2D scaling factor, overriding the default behavior of detecting the scale via
+				// This sets the Java 2D scaling factor, overriding the default behavior of
+				// detecting the scale via
 				// GetDpiForMonitor.
 				jvmProps.put("sun.java2d.uiScale", Double.toString(settings.scale));
 			}
 
-			final var hardwareAccelMode = settings.hardwareAccelerationMode == HardwareAccelerationMode.AUTO ?
-				HardwareAccelerationMode.defaultMode(OS.getOs()) : settings.hardwareAccelerationMode;
+			final var hardwareAccelMode = settings.hardwareAccelerationMode == HardwareAccelerationMode.AUTO
+					? HardwareAccelerationMode.defaultMode(OS.getOs())
+					: settings.hardwareAccelerationMode;
 			jvmProps.putAll(hardwareAccelMode.toParams(OS.getOs()));
 
-			// As of JDK-8243269 (11.0.8) and JDK-8235363 (14), AWT makes macOS dark mode support opt-in so interfaces
-			// with hardcoded foreground/background colours don't get broken by system settings. Considering the native
-			// Aqua we draw consists a window border and an about box, it's safe to say we can opt in.
-			if (OS.getOs() == OS.OSType.MacOS)
-			{
+			// As of JDK-8243269 (11.0.8) and JDK-8235363 (14), AWT makes macOS dark mode
+			// support opt-in so interfaces
+			// with hardcoded foreground/background colours don't get broken by system
+			// settings. Considering the native
+			// Aqua we draw consists a window border and an about box, it's safe to say we
+			// can opt in.
+			if (OS.getOs() == OS.OSType.MacOS) {
 				jvmProps.put("apple.awt.application.appearance", "system");
 			}
 
 			// Stream launcher version
 			jvmProps.put(LauncherProperties.getVersionKey(), LauncherProperties.getVersion());
 
-			if (settings.isSkipTlsVerification())
-			{
+			if (settings.isSkipTlsVerification()) {
 				jvmProps.put("runelite.insecure-skip-tls-verification", "true");
 			}
 
 			log.info(SERVER_NAME + " Launcher version {}", LauncherProperties.getVersion());
 			log.info("Launcher configuration:" + System.lineSeparator() + "{}", settings.configurationStr());
-			log.info("OS name: {}, version: {}, arch: {}", System.getProperty("os.name"), System.getProperty("os.version"), System.getProperty("os.arch"));
+			log.info("OS name: {}, version: {}, arch: {}", System.getProperty("os.name"),
+					System.getProperty("os.version"), System.getProperty("os.arch"));
 			log.info("Using hardware acceleration mode: {}", hardwareAccelMode);
 
 			// java2d properties have to be set prior to the graphics environment startup
 			setJvmParams(jvmProps);
 
-			if (settings.isSkipTlsVerification())
-			{
+			if (settings.isSkipTlsVerification()) {
 				TrustManagerUtil.setupInsecureTrustManager();
-				// This is the only way to disable hostname verification with HttpClient - https://stackoverflow.com/a/52995420
+				// This is the only way to disable hostname verification with HttpClient -
+				// https://stackoverflow.com/a/52995420
 				System.setProperty("jdk.internal.httpclient.disableHostnameVerification", Boolean.TRUE.toString());
-			}
-			else
-			{
+			} else {
 				TrustManagerUtil.setupTrustManager();
 			}
 
 			// setup http client after the default SSLContext is set
-			httpClient = HttpClient.newBuilder()
-				.followRedirects(HttpClient.Redirect.ALWAYS)
-				.build();
+			httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build();
 
-			if (postInstall)
-			{
+			if (postInstall) {
 				postInstall(settings);
 				return;
 			}
@@ -297,20 +276,19 @@ public class Launcher
 			SplashScreen.stage(0, "Preparing", "Setting up environment");
 
 			// Print out system info
-			if (log.isDebugEnabled())
-			{
+			if (log.isDebugEnabled()) {
 				final RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
 
 				log.debug("Command line arguments: {}", String.join(" ", args));
-				// This includes arguments from _JAVA_OPTIONS, which are parsed after command line flags and applied to
+				// This includes arguments from _JAVA_OPTIONS, which are parsed after command
+				// line flags and applied to
 				// the global VM args
 				log.debug("Java VM arguments: {}", String.join(" ", runtime.getInputArguments()));
 				log.debug("Java Environment:");
 				final Properties p = System.getProperties();
 				final Enumeration<Object> keys = p.keys();
 
-				while (keys.hasMoreElements())
-				{
+				while (keys.hasMoreElements()) {
 					final String key = (String) keys.nextElement();
 					final String value = (String) p.get(key);
 					log.debug("  {}: {}", key, value);
@@ -318,38 +296,33 @@ public class Launcher
 			}
 
 			// fix up permissions before potentially removing the RUNASADMIN compat key
-			if (FilesystemPermissions.check())
-			{
+			if (FilesystemPermissions.check()) {
 				// check() opens an error dialog
 				return;
 			}
 
-			if (JagexLauncherCompatibility.check())
-			{
+			if (JagexLauncherCompatibility.check()) {
 				// check() opens an error dialog
 				return;
 			}
 
-			if (!REPO_DIR.exists() && !REPO_DIR.mkdirs())
-			{
+			if (!REPO_DIR.exists() && !REPO_DIR.mkdirs()) {
 				log.error("unable to create directory {}", REPO_DIR);
-				SwingUtilities.invokeLater(() -> new FatalErrorDialog("Unable to create " + SERVER_NAME + " directory " + REPO_DIR.getAbsolutePath() + ". Check your filesystem permissions are correct.").open());
+				SwingUtilities.invokeLater(() -> new FatalErrorDialog("Unable to create " + SERVER_NAME + " directory "
+						+ REPO_DIR.getAbsolutePath() + ". Check your filesystem permissions are correct.").open());
 				return;
 			}
 
 			SplashScreen.stage(.05, null, "Downloading bootstrap");
 			Bootstrap bootstrap;
-			try
-			{
+			try {
 				bootstrap = getBootstrap();
-			}
-			catch (IOException | VerificationException | CertificateException | SignatureException | InvalidKeyException | NoSuchAlgorithmException ex)
-			{
+			} catch (IOException | VerificationException | CertificateException | SignatureException
+					| InvalidKeyException | NoSuchAlgorithmException ex) {
 				log.error("error fetching bootstrap", ex);
 
 				String extract = CertPathExtractor.extract(ex);
-				if (extract != null)
-				{
+				if (extract != null) {
 					log.error("untrusted certificate chain: {}", extract);
 				}
 
@@ -363,8 +336,7 @@ public class Launcher
 
 			SplashScreen.stage(.10, null, "Tidying the cache");
 
-			if (jvmOutdated(bootstrap))
-			{
+			if (jvmOutdated(bootstrap)) {
 				// jvmOutdated opens an error dialog
 				return;
 			}
@@ -372,67 +344,55 @@ public class Launcher
 			// update packr vmargs to the launcher vmargs from bootstrap.
 			PackrConfig.updateLauncherArgs(bootstrap, settings);
 
-			if (!REPO_DIR.exists() && !REPO_DIR.mkdirs())
-			{
+			if (!REPO_DIR.exists() && !REPO_DIR.mkdirs()) {
 				log.error("unable to create repo directory {}", REPO_DIR);
-				SwingUtilities.invokeLater(() -> new FatalErrorDialog("Unable to create " + SERVER_NAME + " directory " + REPO_DIR.getAbsolutePath() + ". Check your filesystem permissions are correct.").open());
+				SwingUtilities.invokeLater(() -> new FatalErrorDialog("Unable to create " + SERVER_NAME + " directory "
+						+ REPO_DIR.getAbsolutePath() + ". Check your filesystem permissions are correct.").open());
 				return;
 			}
 
 			// Determine artifacts for this OS
-			List<Artifact> artifacts = Arrays.stream(bootstrap.getArtifacts())
-				.filter(a ->
-				{
-					if (a.getPlatform() == null)
-					{
+			List<Artifact> artifacts = Arrays.stream(bootstrap.getArtifacts()).filter(a -> {
+				if (a.getPlatform() == null) {
+					return true;
+				}
+
+				final String os = System.getProperty("os.name");
+				final String arch = System.getProperty("os.arch");
+				for (Platform platform : a.getPlatform()) {
+					if (platform.getName() == null) {
+						continue;
+					}
+
+					OS.OSType platformOs = OS.parseOs(platform.getName());
+					if ((platformOs == OS.OSType.Other ? platform.getName().equals(os) : platformOs == OS.getOs())
+							&& (platform.getArch() == null || platform.getArch().equals(arch))) {
 						return true;
 					}
+				}
 
-					final String os = System.getProperty("os.name");
-					final String arch = System.getProperty("os.arch");
-					for (Platform platform : a.getPlatform())
-					{
-						if (platform.getName() == null)
-						{
-							continue;
-						}
-
-						OS.OSType platformOs = OS.parseOs(platform.getName());
-						if ((platformOs == OS.OSType.Other ? platform.getName().equals(os) : platformOs == OS.getOs())
-							&& (platform.getArch() == null || platform.getArch().equals(arch)))
-						{
-							return true;
-						}
-					}
-
-					return false;
-				})
-				.collect(Collectors.toList());
+				return false;
+			}).collect(Collectors.toList());
 
 			// Clean out old artifacts from the repository
 			clean(artifacts);
 
 			if (JAR_HASH_MODE) {
-				try
-				{
+				try {
 					download(artifacts, settings.isNodiffs());
-				}
-				catch (IOException ex)
-				{
+				} catch (IOException ex) {
 					log.error("unable to download artifacts", ex);
 					SwingUtilities.invokeLater(() -> FatalErrorDialog.showNetErrorWindow("downloading the client", ex));
 					return;
 				}
 
 				SplashScreen.stage(.80, null, "Verifying");
-				try
-				{
+				try {
 					verifyJarHashes(artifacts);
-				}
-				catch (VerificationException ex)
-				{
+				} catch (VerificationException ex) {
 					log.error("Unable to verify artifacts", ex);
-					SwingUtilities.invokeLater(() -> FatalErrorDialog.showNetErrorWindow("verifying downloaded files", ex));
+					SwingUtilities
+							.invokeLater(() -> FatalErrorDialog.showNetErrorWindow("verifying downloaded files", ex));
 					return;
 				}
 			} else {
@@ -448,9 +408,8 @@ public class Launcher
 			final Collection<String> clientArgs = getClientArgs(settings);
 			SplashScreen.stage(.90, "Starting the client", "");
 
-			var classpath = artifacts.stream()
-				.map(dep -> new File(REPO_DIR, dep.getName()))
-				.collect(Collectors.toList());
+			var classpath = artifacts.stream().map(dep -> new File(REPO_DIR, dep.getName()))
+					.collect(Collectors.toList());
 
 			List<String> jvmParams = new ArrayList<>();
 			// Set hs_err_pid location. This is a jvm param and can't be set at runtime.
@@ -459,81 +418,62 @@ public class Launcher
 			// Add VM args from cli/env
 			jvmParams.addAll(getJvmArgs(settings));
 
-			if (settings.launchMode == LaunchMode.REFLECT)
-			{
-				log.debug("Using launch mode: REFLECT");
+			if (settings.launchMode == LaunchMode.REFLECT) {
+				log.info("Using launch mode: REFLECT");
 				ReflectionLauncher.launch(classpath, clientArgs);
-			}
-			else if (settings.launchMode == LaunchMode.FORK || (settings.launchMode == LaunchMode.AUTO && ForkLauncher.canForkLaunch()))
-			{
-				log.debug("Using launch mode: FORK");
+			} else if (settings.launchMode == LaunchMode.FORK
+					|| (settings.launchMode == LaunchMode.AUTO && ForkLauncher.canForkLaunch())) {
+				log.info("Using launch mode: FORK");
 				ForkLauncher.launch(bootstrap, classpath, clientArgs, jvmProps, jvmParams);
-			}
-			else
-			{
-				if (System.getenv("APPIMAGE") != null)
-				{
-					// java.home is in the appimage, so we can never use the jvm launcher
-					throw new RuntimeException("JVM launcher is not supported from the appimage");
+			} else {
+				if (System.getenv("APPIMAGE") != null) {
+					log.info("Using fallback launch mode (APPIMAGE): REFLECT");
+					ReflectionLauncher.launch(classpath, clientArgs);
+				} else {
+					// launch mode JVM or AUTO outside of packr
+					log.info("Using launch mode: JVM");
+					JvmLauncher.launch(bootstrap, classpath, clientArgs, jvmProps, jvmParams);
 				}
-
-				// launch mode JVM or AUTO outside of packr
-				log.debug("Using launch mode: JVM");
-				JvmLauncher.launch(bootstrap, classpath, clientArgs, jvmProps, jvmParams);
 			}
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			log.error("Failure during startup", e);
-			if (!postInstall)
-			{
-				SwingUtilities.invokeLater(() ->
-					new FatalErrorDialog(SERVER_NAME + " has encountered an unexpected error during startup.")
-						.open());
+			if (!postInstall) {
+				SwingUtilities.invokeLater(
+						() -> new FatalErrorDialog(SERVER_NAME + " has encountered an unexpected error during startup.")
+								.open());
 			}
-		}
-		catch (Error e)
-		{
+		} catch (Error e) {
 			// packr seems to eat exceptions thrown out of main, so at least try to log it
 			log.error("Failure during startup", e);
 			throw e;
-		}
-		finally
-		{
+		} finally {
 			SplashScreen.stop();
 		}
 	}
 
-	private static void setJvmParams(final Map<String, String> params)
-	{
-		for (Map.Entry<String, String> entry : params.entrySet())
-		{
+	private static void setJvmParams(final Map<String, String> params) {
+		for (Map.Entry<String, String> entry : params.entrySet()) {
 			System.setProperty(entry.getKey(), entry.getValue());
 		}
 	}
 
-	private static Bootstrap getBootstrap() throws IOException, CertificateException, NoSuchAlgorithmException, InvalidKeyException, SignatureException, VerificationException
-	{
-		HttpRequest bootstrapReq = HttpRequest.newBuilder()
-			.uri(URI.create(LauncherProperties.getBootstrap()))
-			.header("User-Agent", USER_AGENT)
-			.GET()
-			.build();
+	private static Bootstrap getBootstrap() throws IOException, CertificateException, NoSuchAlgorithmException,
+			InvalidKeyException, SignatureException, VerificationException {
+		HttpRequest bootstrapReq = HttpRequest.newBuilder().uri(URI.create(LauncherProperties.getBootstrap()))
+				.header("User-Agent", USER_AGENT).GET().build();
 
 		HttpResponse<byte[]> bootstrapResp;
 
-		try
-		{
+		try {
 			bootstrapResp = httpClient.send(bootstrapReq, HttpResponse.BodyHandlers.ofByteArray());
-		}
-		catch (InterruptedException ex)
-		{
+		} catch (InterruptedException ex) {
 			throw new IOException(ex);
 		}
 
-		if (bootstrapResp.statusCode() != 200)
-		{
-			throw new IOException("Unable to download bootstrap (status code " + bootstrapResp.statusCode() + "): " + new String(bootstrapResp.body()));
+		if (bootstrapResp.statusCode() != 200) {
+			showConnectionErrorDialog();
+			throw new IOException("Unable to download bootstrap (status code " + bootstrapResp.statusCode() + "): "
+					+ new String(bootstrapResp.body()));
 		}
 
 		final byte[] bytes = bootstrapResp.body();
@@ -542,40 +482,31 @@ public class Launcher
 		return g.fromJson(new InputStreamReader(new ByteArrayInputStream(bytes)), Bootstrap.class);
 	}
 
-	private static boolean jvmOutdated(Bootstrap bootstrap)
-	{
-		boolean launcherTooOld = bootstrap.getRequiredLauncherVersion() != null &&
-			compareVersion(bootstrap.getRequiredLauncherVersion(), LauncherProperties.getVersion()) > 0;
+	private static boolean jvmOutdated(Bootstrap bootstrap) {
+		boolean launcherTooOld = bootstrap.getRequiredLauncherVersion() != null
+				&& compareVersion(bootstrap.getRequiredLauncherVersion(), LauncherProperties.getVersion()) > 0;
 
 		boolean jvmTooOld = false;
-		try
-		{
-			if (bootstrap.getRequiredJVMVersion() != null)
-			{
-				jvmTooOld = Runtime.Version.parse(bootstrap.getRequiredJVMVersion())
-					.compareTo(Runtime.version()) > 0;
+		try {
+			if (bootstrap.getRequiredJVMVersion() != null) {
+				jvmTooOld = Runtime.Version.parse(bootstrap.getRequiredJVMVersion()).compareTo(Runtime.version()) > 0;
 			}
-		}
-		catch (IllegalArgumentException e)
-		{
+		} catch (IllegalArgumentException e) {
 			log.warn("Unable to parse bootstrap version", e);
 		}
 
-		if (launcherTooOld)
-		{
-			SwingUtilities.invokeLater(() ->
-				new FatalErrorDialog("Your launcher is too old to start " + SERVER_NAME + ". Please download and install a more " +
-					"recent one from " + SERVER_WEBSITE_SHORT)
+		if (launcherTooOld) {
+			SwingUtilities.invokeLater(() -> new FatalErrorDialog("Your launcher is too old to start " + SERVER_NAME
+					+ ". Please download and install a more " + "recent one from " + SERVER_WEBSITE_SHORT)
 					.addButton(SERVER_WEBSITE_SHORT, () -> LinkBrowser.browse(LauncherProperties.getDownloadLink()))
 					.open());
 			return true;
 		}
-		if (jvmTooOld)
-		{
-			SwingUtilities.invokeLater(() ->
-				new FatalErrorDialog("Your Java installation is too old. " + SERVER_NAME + " now requires Java " +
-					bootstrap.getRequiredJVMVersion() + " to run. You can get a platform specific version from " + SERVER_WEBSITE_SHORT + "," +
-					" or install a newer version of Java.")
+		if (jvmTooOld) {
+			SwingUtilities.invokeLater(() -> new FatalErrorDialog("Your Java installation is too old. " + SERVER_NAME
+					+ " now requires Java " + bootstrap.getRequiredJVMVersion()
+					+ " to run. You can get a platform specific version from " + SERVER_WEBSITE_SHORT + ","
+					+ " or install a newer version of Java.")
 					.addButton(SERVER_WEBSITE_SHORT, () -> LinkBrowser.browse(LauncherProperties.getDownloadLink()))
 					.open());
 			return true;
@@ -584,87 +515,65 @@ public class Launcher
 		return false;
 	}
 
-	private static Collection<String> getClientArgs(LauncherSettings settings)
-	{
+	private static Collection<String> getClientArgs(LauncherSettings settings) {
 		final var args = new ArrayList<>(settings.clientArguments);
 
 		String clientArgs = System.getenv("RUNELITE_ARGS");
-		if (!Strings.isNullOrEmpty(clientArgs))
-		{
-			args.addAll(Splitter.on(' ')
-				.omitEmptyStrings()
-				.trimResults()
-				.splitToList(clientArgs));
+		if (!Strings.isNullOrEmpty(clientArgs)) {
+			args.addAll(Splitter.on(' ').omitEmptyStrings().trimResults().splitToList(clientArgs));
 		}
 
-		if (settings.debug)
-		{
+		if (settings.debug) {
 			args.add("--debug");
 		}
 
-		if (settings.safemode)
-		{
+		if (settings.safemode) {
 			args.add("--safe-mode");
 		}
 
 		return args;
 	}
 
-	private static List<String> getJvmArgs(LauncherSettings settings)
-	{
+	private static List<String> getJvmArgs(LauncherSettings settings) {
 		var args = new ArrayList<>(settings.jvmArguments);
 
-		if (settings.ipv4)
-		{
+		if (settings.ipv4) {
 			args.add("-Djava.net.preferIPv4Stack=true");
 		}
 
 		var envArgs = System.getenv("RUNELITE_VMARGS");
-		if (!Strings.isNullOrEmpty(envArgs))
-		{
-			args.addAll(Splitter.on(' ')
-				.omitEmptyStrings()
-				.trimResults()
-				.splitToList(envArgs));
+		if (!Strings.isNullOrEmpty(envArgs)) {
+			args.addAll(Splitter.on(' ').omitEmptyStrings().trimResults().splitToList(envArgs));
 		}
 
 		return args;
 	}
 
-	private static void download(List<Artifact> artifacts, boolean nodiff) throws IOException
-	{
+	private static void download(List<Artifact> artifacts, boolean nodiff) throws IOException {
 		List<Artifact> toDownload = new ArrayList<>(artifacts.size());
 		Map<Artifact, Diff> diffs = new HashMap<>();
 		int totalDownloadBytes = 0;
 		final boolean isCompatible = new DefaultDeflateCompatibilityWindow().isCompatible();
 
-		if (!isCompatible && !nodiff)
-		{
+		if (!isCompatible && !nodiff) {
 			log.debug("System zlib is not compatible with archive-patcher; not using diffs");
 			nodiff = true;
 		}
 
-		for (Artifact artifact : artifacts)
-		{
+		for (Artifact artifact : artifacts) {
 			File dest = new File(REPO_DIR, artifact.getName());
 
 			String hash;
-			try
-			{
+			try {
 				hash = hash(dest);
-			}
-			catch (FileNotFoundException ex)
-			{
+			} catch (FileNotFoundException ex) {
 				hash = null;
-			}
-			catch (IOException ex)
-			{
+			} catch (IOException ex) {
 				dest.delete();
 				hash = null;
 			}
 
-			if (Objects.equals(hash, artifact.getHash()))
-			{
+			if (Objects.equals(hash, artifact.getHash())) {
 				log.debug("Hash for {} up to date", artifact.getName());
 				continue;
 			}
@@ -672,25 +581,19 @@ public class Launcher
 			int downloadSize = artifact.getSize();
 
 			// See if there is a diff available
-			if (!nodiff && artifact.getDiffs() != null)
-			{
-				for (Diff diff : artifact.getDiffs())
-				{
+			if (!nodiff && artifact.getDiffs() != null) {
+				for (Diff diff : artifact.getDiffs()) {
 					File old = new File(REPO_DIR, diff.getFrom());
 
 					String oldhash;
-					try
-					{
+					try {
 						oldhash = hash(old);
-					}
-					catch (IOException ex)
-					{
+					} catch (IOException ex) {
 						continue;
 					}
 
 					// Check if old file is valid
-					if (diff.getFromHash().equals(oldhash))
-					{
+					if (diff.getFromHash().equals(oldhash)) {
 						diffs.put(artifact, diff);
 						downloadSize = diff.getSize();
 					}
@@ -705,45 +608,39 @@ public class Launcher
 		int downloaded = 0;
 		SplashScreen.stage(START_PROGRESS, "Downloading", "");
 
-		for (Artifact artifact : toDownload)
-		{
+		for (Artifact artifact : toDownload) {
 			File dest = new File(REPO_DIR, artifact.getName());
 			final int total = downloaded;
 
 			// Check if there is a diff we can download instead
 			Diff diff = diffs.get(artifact);
-			if (diff != null)
-			{
+			if (diff != null) {
 				log.debug("Downloading diff {}", diff.getName());
 
-				try
-				{
+				try {
 					ByteArrayOutputStream out = new ByteArrayOutputStream();
 					final int totalBytes = totalDownloadBytes;
-					download(diff.getPath(), diff.getHash(), (completed) ->
-						SplashScreen.stage(START_PROGRESS, .80, null, diff.getName(), total + completed, totalBytes, true),
-						out);
+					download(diff.getPath(), diff.getHash(), (completed) -> SplashScreen.stage(START_PROGRESS, .80,
+							null, diff.getName(), total + completed, totalBytes, true), out);
 					downloaded += diff.getSize();
 
 					File old = new File(REPO_DIR, diff.getFrom());
 					HashCode hash;
 					try (InputStream patchStream = new GZIPInputStream(new ByteArrayInputStream(out.toByteArray()));
-						HashingOutputStream fout = new HashingOutputStream(Hashing.sha256(), Files.newOutputStream(dest.toPath())))
-					{
+							HashingOutputStream fout = new HashingOutputStream(Hashing.sha256(),
+									Files.newOutputStream(dest.toPath()))) {
 						new FileByFileV1DeltaApplier().applyDelta(old, patchStream, fout);
 						hash = fout.hash();
 					}
 
-					if (artifact.getHash().equals(hash.toString()))
-					{
+					if (artifact.getHash().equals(hash.toString())) {
 						log.debug("Patching successful for {}", artifact.getName());
 						continue;
 					}
 
-					log.debug("Patched artifact hash mismatches! {}: got {} expected {}", artifact.getName(), hash.toString(), artifact.getHash());
-				}
-				catch (IOException | VerificationException e)
-				{
+					log.debug("Patched artifact hash mismatches! {}: got {} expected {}", artifact.getName(),
+							hash.toString(), artifact.getHash());
+				} catch (IOException | VerificationException e) {
 					log.warn("unable to download patch {}", diff.getName(), e);
 					// Fall through and try downloading the full artifact
 				}
@@ -755,141 +652,107 @@ public class Launcher
 
 			log.debug("Downloading {}", artifact.getName());
 
-			try (OutputStream fout = Files.newOutputStream(dest.toPath()))
-			{
+			try (OutputStream fout = Files.newOutputStream(dest.toPath())) {
 				final int totalBytes = totalDownloadBytes;
-				download(artifact.getPath(), artifact.getHash(), (completed) ->
-					SplashScreen.stage(START_PROGRESS, .80, null, artifact.getName(), total + completed, totalBytes, true),
-					fout);
+				download(artifact.getPath(), artifact.getHash(), (completed) -> SplashScreen.stage(START_PROGRESS, .80,
+						null, artifact.getName(), total + completed, totalBytes, true), fout);
 				downloaded += artifact.getSize();
-			}
-			catch (VerificationException e)
-			{
+			} catch (VerificationException e) {
 				log.warn("unable to verify jar {}", artifact.getName(), e);
 			}
 		}
 	}
 
-	private static void clean(List<Artifact> artifacts)
-	{
+	private static void clean(List<Artifact> artifacts) {
 		File[] existingFiles = REPO_DIR.listFiles();
 
-		if (existingFiles == null)
-		{
+		if (existingFiles == null) {
 			return;
 		}
 
 		Set<String> artifactNames = new HashSet<>();
-		for (Artifact artifact : artifacts)
-		{
+		for (Artifact artifact : artifacts) {
 			artifactNames.add(artifact.getName());
-			if (artifact.getDiffs() != null)
-			{
+			if (artifact.getDiffs() != null) {
 				// Keep around the old files which diffs are from
-				for (Diff diff : artifact.getDiffs())
-				{
+				for (Diff diff : artifact.getDiffs()) {
 					artifactNames.add(diff.getFrom());
 				}
 			}
 		}
 
-		for (File file : existingFiles)
-		{
-			if (file.isFile() && !artifactNames.contains(file.getName()))
-			{
-				if (file.delete())
-				{
+		for (File file : existingFiles) {
+			if (file.isFile() && !artifactNames.contains(file.getName())) {
+				if (file.delete()) {
 					log.debug("Deleted old artifact {}", file);
-				}
-				else
-				{
+				} else {
 					log.warn("Unable to delete old artifact {}", file);
 				}
 			}
 		}
 	}
 
-	private static void verifyJarHashes(List<Artifact> artifacts) throws VerificationException
-	{
-		for (Artifact artifact : artifacts)
-		{
+	private static void verifyJarHashes(List<Artifact> artifacts) throws VerificationException {
+		for (Artifact artifact : artifacts) {
 			String expectedHash = artifact.getHash();
 			String fileHash;
-			try
-			{
+			try {
 				fileHash = hash(new File(REPO_DIR, artifact.getName()));
-			}
-			catch (IOException e)
-			{
+			} catch (IOException e) {
 				throw new VerificationException("unable to hash file", e);
 			}
 
-			if (!fileHash.equals(expectedHash))
-			{
+			if (!fileHash.equals(expectedHash)) {
 				log.warn("Expected {} for {} but got {}", expectedHash, artifact.getName(), fileHash);
-				throw new VerificationException("Expected " + expectedHash + " for " + artifact.getName() + " but got " + fileHash);
+				throw new VerificationException(
+						"Expected " + expectedHash + " for " + artifact.getName() + " but got " + fileHash);
 			}
 
 			log.info("Verified hash of {}", artifact.getName());
 		}
 	}
 
-	private static String hash(File file) throws IOException
-	{
+	private static String hash(File file) throws IOException {
 		HashFunction sha256 = Hashing.sha256();
 		return com.google.common.io.Files.asByteSource(file).hash(sha256).toString();
 	}
 
-	private static Certificate getCertificate() throws CertificateException
-	{
+	private static Certificate getCertificate() throws CertificateException {
 		CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
 		Certificate certificate = certFactory.generateCertificate(Launcher.class.getResourceAsStream("runelite.crt"));
 		return certificate;
 	}
 
-	static int compareVersion(String a, String b)
-	{
+	static int compareVersion(String a, String b) {
 		Pattern tok = Pattern.compile("[^0-9a-zA-Z]");
-		return Arrays.compare(tok.split(a), tok.split(b), (x, y) ->
-		{
+		return Arrays.compare(tok.split(a), tok.split(b), (x, y) -> {
 			Integer ix = null;
-			try
-			{
+			try {
 				ix = Integer.parseInt(x);
-			}
-			catch (NumberFormatException e)
-			{
+			} catch (NumberFormatException e) {
 			}
 
 			Integer iy = null;
-			try
-			{
+			try {
 				iy = Integer.parseInt(y);
-			}
-			catch (NumberFormatException e)
-			{
+			} catch (NumberFormatException e) {
 			}
 
-			if (ix == null && iy == null)
-			{
+			if (ix == null && iy == null) {
 				return x.compareToIgnoreCase(y);
 			}
 
-			if (ix == null)
-			{
+			if (ix == null) {
 				return -1;
 			}
-			if (iy == null)
-			{
+			if (iy == null) {
 				return 1;
 			}
 
-			if (ix > iy)
-			{
+			if (ix > iy) {
 				return 1;
 			}
-			if (ix < iy)
-			{
+			if (ix < iy) {
 				return -1;
 			}
 
@@ -897,37 +760,28 @@ public class Launcher
 		});
 	}
 
-	static void download(String path, String hash, IntConsumer progress, OutputStream out) throws IOException, VerificationException
-	{
-		HttpRequest request = HttpRequest.newBuilder()
-			.uri(URI.create(path))
-			.header("User-Agent", USER_AGENT)
-			.GET()
-			.build();
+	static void download(String path, String hash, IntConsumer progress, OutputStream out)
+			throws IOException, VerificationException {
+		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(path)).header("User-Agent", USER_AGENT).GET()
+				.build();
 
 		HttpResponse<InputStream> response;
-		try
-		{
+		try {
 			response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-		}
-		catch (InterruptedException ex)
-		{
+		} catch (InterruptedException ex) {
 			throw new IOException(ex);
 		}
 
-		if (response.statusCode() != 200)
-		{
+		if (response.statusCode() != 200) {
 			throw new IOException("Unable to download " + path + " (status code " + response.statusCode() + ")");
 		}
 
 		int downloaded = 0;
 		HashingOutputStream hout = new HashingOutputStream(Hashing.sha256(), out);
-		try (InputStream in = response.body())
-		{
+		try (InputStream in = response.body()) {
 			int i;
 			byte[] buffer = new byte[1024 * 1024];
-			while ((i = in.read(buffer)) != -1)
-			{
+			while ((i = in.read(buffer)) != -1) {
 				hout.write(buffer, 0, i);
 				downloaded += i;
 				progress.accept(downloaded);
@@ -935,27 +789,24 @@ public class Launcher
 		}
 
 		HashCode hashCode = hout.hash();
-		if (!hash.equals(hashCode.toString()))
-		{
-			throw new VerificationException("Unable to verify resource " + path + " - expected " + hash + " got " + hashCode.toString());
+		if (!hash.equals(hashCode.toString())) {
+			throw new VerificationException(
+					"Unable to verify resource " + path + " - expected " + hash + " got " + hashCode.toString());
 		}
 	}
 
-	static boolean isJava17()
-	{
-		// 16 has the same module restrictions as 17, so we'll use the 17 settings for it
+	static boolean isJava17() {
+		// 16 has the same module restrictions as 17, so we'll use the 17 settings for
+		// it
 		return Runtime.version().feature() >= 16;
 	}
 
-	private static void postInstall(LauncherSettings settings)
-	{
+	private static void postInstall(LauncherSettings settings) {
 		Bootstrap bootstrap;
-		try
-		{
+		try {
 			bootstrap = getBootstrap();
-		}
-		catch (IOException | VerificationException | CertificateException | SignatureException | InvalidKeyException | NoSuchAlgorithmException ex)
-		{
+		} catch (IOException | VerificationException | CertificateException | SignatureException | InvalidKeyException
+				| NoSuchAlgorithmException ex) {
 			log.error("error fetching bootstrap", ex);
 			return;
 		}
@@ -965,49 +816,38 @@ public class Launcher
 		log.info("Performed postinstall steps");
 	}
 
-	private static void initDll()
-	{
-		if (OS.getOs() != OS.OSType.Windows)
-		{
+	private static void initDll() {
+		if (OS.getOs() != OS.OSType.Windows) {
 			return;
 		}
 
 		String arch = System.getProperty("os.arch");
-		if (!Set.of("x86", "amd64", "aarch64").contains(arch))
-		{
+		if (!Set.of("x86", "amd64", "aarch64").contains(arch)) {
 			log.debug("System architecture is not supported for launcher natives: {}", arch);
 			return;
 		}
 
-		try
-		{
+		try {
 			System.loadLibrary("launcher_" + arch);
 			log.debug("Loaded launcher native launcher_{}", arch);
 			nativesLoaded = true;
-		}
-		catch (Error ex)
-		{
+		} catch (Error ex) {
 			log.debug("Error loading launcher native", ex);
 		}
 	}
 
-	private static void initDllBlacklist()
-	{
+	private static void initDllBlacklist() {
 		String blacklistedDlls = System.getProperty("runelite.launcher.blacklistedDlls");
-		if (blacklistedDlls == null || blacklistedDlls.isEmpty())
-		{
+		if (blacklistedDlls == null || blacklistedDlls.isEmpty()) {
 			return;
 		}
 
 		String[] dlls = blacklistedDlls.split(",");
 
-		try
-		{
+		try {
 			log.debug("Setting blacklisted dlls: {}", blacklistedDlls);
 			setBlacklistedDlls(dlls);
-		}
-		catch (UnsatisfiedLinkError ex)
-		{
+		} catch (UnsatisfiedLinkError ex) {
 			log.debug("Error setting dll blacklist", ex);
 		}
 	}
@@ -1016,13 +856,42 @@ public class Launcher
 
 	static native String regQueryString(String subKey, String value);
 
-	// Requires elevated permissions. Current valid inputs for key are: "HKCU" and "HKLM"
+	// Requires elevated permissions. Current valid inputs for key are: "HKCU" and
+	// "HKLM"
 	static native boolean regDeleteValue(String key, String subKey, String value);
 
 	static native boolean isProcessElevated(long pid);
 
 	static native void setFileACL(String folder, String[] sids);
+
 	static native String getUserSID();
 
 	static native long runas(String path, String args);
+
+	private static void showConnectionErrorDialog() {
+		String html = "<html><body style='width: 300px; font-family:sans-serif;'>"
+				+ "<h3 style='color: #cc0000;'>Connection Error</h3>"
+				+ "<p>Velheim was unable to connect! This may be caused by:</p><ul>"
+				+ "<li>The Velheim server being offline</li><li>Your internet connection being down</li>"
+				+ "<li>A firewall, proxy, or antivirus blocking the connection</li></ul>"
+				+ "<p>Please verify your internet is working and try again later.</p><hr style='margin-top:10px;'>"
+				+ "<p><a href='https://discord.gg/uZmAkDdvH4'>Having issues? Join our Discord for help</a></p>"
+				+ "</body></html>";
+
+		JEditorPane editorPane = new JEditorPane("text/html", html);
+		editorPane.setEditable(false);
+		editorPane.setOpaque(false);
+		editorPane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+		editorPane.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+		editorPane.addHyperlinkListener(e -> {
+			if (e.getEventType() == EventType.ACTIVATED) {
+				LinkBrowser.browse(LauncherProperties.getDiscordInvite());
+			}
+		});
+
+		JOptionPane.showMessageDialog(null, editorPane, "Velheim Launcher - Connection Error",
+				JOptionPane.ERROR_MESSAGE);
+		System.exit(0);
+	}
 }

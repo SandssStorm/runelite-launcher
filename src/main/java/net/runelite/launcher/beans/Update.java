@@ -27,8 +27,7 @@ package net.runelite.launcher.beans;
 import lombok.Data;
 
 @Data
-public class Update
-{
+public class Update {
 	private String os; // windows, macos
 	private String osName; // os.name
 	private String osVersion; // os.version

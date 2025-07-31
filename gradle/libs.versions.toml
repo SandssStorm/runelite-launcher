@@ -22,7 +22,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [libraries]
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.18" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.2.10" }
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version = "4.9.3" }
 gson = { module = "com.google.code.gson:gson", version = "2.13.1" }
 guava = { module = "com.google.guava:guava", version = "33.4.8-jre" }

@@ -27,8 +27,7 @@ package net.runelite.launcher.beans;
 import lombok.Data;
 
 @Data
-public class Artifact
-{
+public class Artifact {
 	private String name;
 	private String path;
 	private String hash;

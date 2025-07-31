@@ -28,8 +28,7 @@ import java.util.Map;
 import lombok.Data;
 
 @Data
-public class Bootstrap
-{
+public class Bootstrap {
 	private Artifact[] artifacts;
 
 	private String[] clientJvm9Arguments;

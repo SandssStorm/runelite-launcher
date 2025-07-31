@@ -27,8 +27,7 @@ package net.runelite.launcher.beans;
 import lombok.Data;
 
 @Data
-public class Diff
-{
+public class Diff {
 	private String name;
 	private String from;
 	private String fromHash;

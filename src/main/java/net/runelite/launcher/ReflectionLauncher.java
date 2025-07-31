@@ -36,14 +36,12 @@ import java.util.Collection;
 import java.util.List;
 
 @Slf4j
-class ReflectionLauncher
-{
-	static void launch(List<File> classpath, Collection<String> clientArgs) throws MalformedURLException
-	{
+class ReflectionLauncher {
+	
+	static void launch(List<File> classpath, Collection<String> clientArgs) throws MalformedURLException {
 		URL[] jarUrls = new URL[classpath.size()];
 		int i = 0;
-		for (var file : classpath)
-		{
+		for (var file : classpath) {
 			log.debug("Adding jar: {}", file);
 			jarUrls[i++] = file.toURI().toURL();
 		}
@@ -55,17 +53,13 @@ class ReflectionLauncher
 		// is not in the boot classpath
 		UIManager.put("ClassLoader", loader);
 
-		Thread thread = new Thread(() ->
-		{
-			try
-			{
+		Thread thread = new Thread(() -> {
+			try {
 				Class<?> mainClass = loader.loadClass(LauncherProperties.getMain());
 
 				Method main = mainClass.getMethod("main", String[].class);
 				main.invoke(null, (Object) clientArgs.toArray(new String[0]));
-			}
-			catch (Exception ex)
-			{
+			} catch (Exception ex) {
 				log.error("Unable to launch client", ex);
 			}
 		});

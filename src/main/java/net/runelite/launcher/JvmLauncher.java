@@ -41,46 +41,35 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Slf4j
-class JvmLauncher
-{
+class JvmLauncher {
 	private static final Logger logger = LoggerFactory.getLogger(JvmLauncher.class);
 
-	private static String getJava() throws FileNotFoundException
-	{
+	private static String getJava() throws FileNotFoundException {
 		Path javaHome = Paths.get(System.getProperty("java.home"));
 
-		if (!Files.exists(javaHome))
-		{
-			throw new FileNotFoundException("JAVA_HOME is not set correctly! directory \"" + javaHome + "\" does not exist.");
+		if (!Files.exists(javaHome)) {
+			throw new FileNotFoundException(
+					"JAVA_HOME is not set correctly! directory \"" + javaHome + "\" does not exist.");
 		}
 
 		Path javaPath = Paths.get(javaHome.toString(), "bin", "java.exe");
 
-		if (!Files.exists(javaPath))
-		{
+		if (!Files.exists(javaPath)) {
 			javaPath = Paths.get(javaHome.toString(), "bin", "java");
 		}
 
-		if (!Files.exists(javaPath))
-		{
+		if (!Files.exists(javaPath)) {
 			throw new FileNotFoundException("java executable not found in directory \"" + javaPath.getParent() + "\"");
 		}
 
 		return javaPath.toAbsolutePath().toString();
 	}
 
-	static void launch(
-		Bootstrap bootstrap,
-		List<File> classpath,
-		Collection<String> clientArgs,
-		Map<String, String> jvmProps,
-		List<String> jvmArgs) throws IOException
-	{
+	static void launch(Bootstrap bootstrap, List<File> classpath, Collection<String> clientArgs,
+			Map<String, String> jvmProps, List<String> jvmArgs) throws IOException {
 		StringBuilder classPath = new StringBuilder();
-		for (var f : classpath)
-		{
-			if (classPath.length() > 0)
-			{
+		for (var f : classpath) {
+			if (classPath.length() > 0) {
 				classPath.append(File.pathSeparatorChar);
 			}
 
@@ -88,12 +77,9 @@ class JvmLauncher
 		}
 
 		String javaExePath;
-		try
-		{
+		try {
 			javaExePath = getJava();
-		}
-		catch (FileNotFoundException ex)
-		{
+		} catch (FileNotFoundException ex) {
 			logger.error("Unable to find java executable", ex);
 			return;
 		}
@@ -104,12 +90,10 @@ class JvmLauncher
 		arguments.add(classPath.toString());
 
 		String[] jvmArguments = getJvmArguments(bootstrap);
-		if (jvmArguments != null)
-		{
+		if (jvmArguments != null) {
 			arguments.addAll(Arrays.asList(jvmArguments));
 		}
-		for (Map.Entry<String, String> entry : jvmProps.entrySet())
-		{
+		for (Map.Entry<String, String> entry : jvmProps.entrySet()) {
 			arguments.add("-D" + entry.getKey() + "=" + entry.getValue());
 		}
 		arguments.addAll(jvmArgs);
@@ -123,39 +107,30 @@ class JvmLauncher
 		builder.inheritIO();
 		Process process = builder.start();
 
-		if (log.isDebugEnabled())
-		{
+		if (log.isDebugEnabled()) {
 			SplashScreen.stop();
 
-			try
-			{
+			try {
 				process.waitFor();
-			}
-			catch (InterruptedException e)
-			{
+			} catch (InterruptedException e) {
 				throw new RuntimeException(e);
 			}
 		}
 	}
 
-	static String[] getJvmArguments(Bootstrap bootstrap)
-	{
-		if (Launcher.isJava17())
-		{
-			switch (OS.getOs())
-			{
-				case Windows:
-					String[] args = bootstrap.getClientJvm17WindowsArguments();
-					return args != null ? args : bootstrap.getClientJvm17Arguments();
-				case MacOS:
-					args = bootstrap.getClientJvm17MacArguments();
-					return args != null ? args : bootstrap.getClientJvm17Arguments();
-				default:
-					return bootstrap.getClientJvm17Arguments();
+	static String[] getJvmArguments(Bootstrap bootstrap) {
+		if (Launcher.isJava17()) {
+			switch (OS.getOs()) {
+			case Windows:
+				String[] args = bootstrap.getClientJvm17WindowsArguments();
+				return args != null ? args : bootstrap.getClientJvm17Arguments();
+			case MacOS:
+				args = bootstrap.getClientJvm17MacArguments();
+				return args != null ? args : bootstrap.getClientJvm17Arguments();
+			default:
+				return bootstrap.getClientJvm17Arguments();
 			}
-		}
-		else
-		{
+		} else {
 			return bootstrap.getClientJvm9Arguments();
 		}
 	}
